@@ -57,7 +57,7 @@ Keep this key private because it may have administrator-level access to Seerr.
 
 - TV requests currently request **all seasons**.
 - `is_4k: true` requires a correctly configured default 4K Radarr/Sonarr service in Seerr.
-- Automatic card resource registration works with the normal Home Assistant Lovelace storage mode. Users who run Lovelace resources entirely from YAML must add `/seerr_card/seerr-search-card.js?v=0.2.0` as a JavaScript module themselves.
+- Automatic card resource registration works with the normal Home Assistant Lovelace storage mode. Users who run Lovelace resources entirely from YAML must add `/seerr_card/seerr-search-card.js?v=0.2.1` as a JavaScript module themselves.
 
 ## Updating
 
