@@ -1,4 +1,4 @@
-/* Seerr Search Card v0.2.0 */
+/* Seerr Search Card v0.2.1 */
 class SeerrSearchCard extends HTMLElement {
   constructor() {
     super();
@@ -113,7 +113,6 @@ class SeerrSearchCard extends HTMLElement {
       });
       this._results = Array.isArray(data?.results) ? data.results : [];
       if (!this._results.length) this._error = "No movies or TV shows found.";
-      this._notifyResize();
     } catch (error) {
       this._error = this._errorMessage(error, "Search failed");
     } finally {
@@ -231,10 +230,6 @@ class SeerrSearchCard extends HTMLElement {
           </div>
         </div>
       </article>`;
-  }
-
-  _notifyResize() {
-    this.dispatchEvent(new Event("ll-rebuild", { bubbles: true, composed: true }));
   }
 
   _showErrorOnly() {
