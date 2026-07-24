@@ -1,80 +1,39 @@
-# Seerr Search Card for Home Assistant — v0.1.0
+# Seerr Search Card for Home Assistant
 
-This package contains:
+Search for movies and TV shows in Seerr directly from a Home Assistant dashboard, then send the request without opening Seerr.
 
-- `custom_components/seerr_card/` — secure Home Assistant backend that stores the Seerr API key and calls Seerr.
-- `www/seerr-search-card.js` — Home Assistant dashboard card.
+## Features
 
-## Current features
+- Search movies and TV shows.
+- Display posters, year, rating, overview and request status.
+- Request movies or all seasons of a TV show.
+- Optional 4K requests.
+- Visual dashboard card editor.
+- Seerr API key is stored in the Home Assistant integration config, not in the card or browser.
+- Home Assistant administrator permission is required to create a request.
+- The dashboard JavaScript resource is registered automatically in normal Lovelace storage mode.
 
-- Search movies and TV shows from the Home Assistant dashboard.
-- Display poster, title, year, rating, overview and Seerr status.
-- Request a movie.
-- Request all seasons of a TV show.
-- Configure normal card options in Home Assistant’s visual card editor.
-- Keep the Seerr API key out of the browser and dashboard YAML.
-- Require the Home Assistant user to be an administrator before creating a request.
+## HACS installation
 
-## 1. Copy the files
+This repository can currently be installed as a **HACS custom repository**:
 
-Using File Editor, Samba or SSH:
+1. Open **HACS**.
+2. Open the three-dot menu and choose **Custom repositories**.
+3. Add `https://github.com/akugiz/seerr-home-assistant-card`.
+4. Select **Integration** as the category.
+5. Install **Seerr Search Card**.
+6. Restart Home Assistant.
+7. Open **Settings → Devices & services → Add integration**.
+8. Search for **Seerr Search Card**.
+9. Enter your Seerr URL and API key.
 
-- Copy `custom_components/seerr_card` into `/config/custom_components/seerr_card`
-- Copy `www/seerr-search-card.js` into `/config/www/seerr-search-card.js`
+No files, `configuration.yaml`, `secrets.yaml`, or dashboard resources need to be added manually.
 
-Create `/config/custom_components` and `/config/www` if they do not already exist.
+After setup, add **Seerr Search Card** from the normal Home Assistant dashboard card picker.
 
-## 2. Add your API key to secrets.yaml
+## Card configuration
 
-Get the API key from Seerr:
-
-`Settings → General → API Key`
-
-Add this to `/config/secrets.yaml`:
-
-```yaml
-seerr_api_key: "PASTE_YOUR_SEERR_API_KEY_HERE"
-```
-
-## 3. Add the integration to configuration.yaml
-
-Change the URL to the local address of your Seerr server:
-
-```yaml
-seerr_card:
-  url: "http://192.168.1.20:5055"
-  api_key: !secret seerr_api_key
-  verify_ssl: true
-```
-
-Notes:
-
-- For normal local HTTP, `verify_ssl: true` is fine because SSL is not used.
-- For HTTPS with a self-signed certificate, use `verify_ssl: false`.
-- You may enter a URL with or without `/api/v1` at the end.
-
-Restart Home Assistant completely.
-
-After restart, check **Settings → System → Logs**. You should see `Seerr Card connected as ...` and no Seerr Card setup error.
-
-## 4. Register the JavaScript resource
-
-Open:
-
-`Settings → Dashboards → three-dot menu → Resources → Add resource`
-
-Use:
-
-- URL: `/local/seerr-search-card.js?v=0.1.0`
-- Resource type: `JavaScript Module`
-
-If Resources is not visible, enable **Advanced Mode** in your Home Assistant user profile.
-
-## 5. Add the dashboard card
-
-Search for **Seerr Search Card** in the card picker. It includes a visual settings editor.
-
-You can also add a **Manual card** with:
+The visual editor covers the normal options. Manual YAML is also supported:
 
 ```yaml
 type: custom:seerr-search-card
@@ -83,41 +42,41 @@ max_results: 12
 show_overview: true
 show_rating: true
 poster_width: 92
+is_4k: false
 ```
 
-Optional 4K requests:
+## Finding the Seerr API key
 
-```yaml
-type: custom:seerr-search-card
-title: Search 4K movies & TV
-is_4k: true
-max_results: 12
-```
+In Seerr, open:
 
-Only use `is_4k: true` if a default 4K Radarr/Sonarr service is correctly configured in Seerr.
+**Settings → General → API Key**
+
+Keep this key private because it may have administrator-level access to Seerr.
+
+## Important notes
+
+- TV requests currently request **all seasons**.
+- `is_4k: true` requires a correctly configured default 4K Radarr/Sonarr service in Seerr.
+- Automatic card resource registration works with the normal Home Assistant Lovelace storage mode. Users who run Lovelace resources entirely from YAML must add `/seerr_card/seerr-search-card.js?v=0.2.0` as a JavaScript module themselves.
+
+## Updating
+
+HACS will update everything under `custom_components/seerr_card`, including the backend and dashboard card.
 
 ## Troubleshooting
 
-### Card says custom element does not exist
+### Integration does not appear after installing
 
-- Confirm the JS file is exactly `/config/www/seerr-search-card.js`.
-- Confirm the resource URL is `/local/seerr-search-card.js?v=0.1.0`.
-- Clear the browser cache or change the URL to `?v=0.1.1`.
+Restart Home Assistant, then clear the browser cache and search again under **Settings → Devices & services → Add integration**.
 
 ### Search fails
 
-- Confirm Home Assistant can reach the Seerr local IP and port.
-- Confirm the Seerr URL and API key.
-- Check **Settings → System → Logs**.
+Confirm that Home Assistant can reach the Seerr address and port. Check **Settings → System → Logs** for `seerr_card` errors.
 
-### Request fails with unauthorized/admin error
+### The card is missing from the card picker
 
-The card deliberately requires the current Home Assistant account to be an administrator because the configured Seerr API key can be highly privileged.
+Restart Home Assistant and perform a hard refresh. The integration automatically registers the card resource when Lovelace is in storage mode.
 
-### TV request behavior
+### Request is rejected
 
-Version 0.1.0 requests **all seasons**. A future version can add a season selection dialog.
-
-## Security
-
-Do not place the Seerr API key in the card YAML or JavaScript file. Keep it in `secrets.yaml`. Seerr warns that the API key may provide administrator-level access.
+The current Home Assistant user must be an administrator, and the Seerr API key must have permission to create requests.
