@@ -1,0 +1,24 @@
+{
+  "title": "Seerr Search Card",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Seerr",
+        "description": "Enter the local or HTTPS address of your Seerr server and its API key.",
+        "data": {
+          "url": "Seerr URL",
+          "api_key": "API key",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to Seerr. Check the address and network access.",
+      "invalid_auth": "The API key was rejected by Seerr.",
+      "unknown": "Unexpected error while connecting to Seerr."
+    },
+    "abort": {
+      "already_configured": "This Seerr server is already configured."
+    }
+  }
+}
