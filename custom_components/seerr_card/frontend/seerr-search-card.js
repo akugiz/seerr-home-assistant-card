@@ -1,4 +1,4 @@
-/* Seerr Search Card v0.2.1 */
+/* Seerr Search Card v0.2.2 */
 class SeerrSearchCard extends HTMLElement {
   constructor() {
     super();
@@ -10,6 +10,17 @@ class SeerrSearchCard extends HTMLElement {
     this._error = "";
     this._query = "";
     this._initialized = false;
+    this._suggestions = [];
+    this._suggestionsLoading = false;
+    this._suggestionsOpen = false;
+    this._activeSuggestion = -1;
+    this._suggestionTimer = null;
+    this._suggestionRequest = 0;
+  }
+
+  disconnectedCallback() {
+    clearTimeout(this._suggestionTimer);
+    this._suggestionRequest += 1;
   }
 
   setConfig(config) {
@@ -19,6 +30,7 @@ class SeerrSearchCard extends HTMLElement {
       show_overview: true,
       show_rating: true,
       poster_width: 92,
+      live_suggestions: true,
       ...config,
     };
     this._render();
@@ -56,6 +68,7 @@ class SeerrSearchCard extends HTMLElement {
           name: "poster_width",
           selector: { number: { min: 60, max: 150, step: 2, mode: "slider", unit_of_measurement: "px" } },
         },
+        { name: "live_suggestions", selector: { boolean: {} } },
         { name: "show_overview", selector: { boolean: {} } },
         { name: "show_rating", selector: { boolean: {} } },
         { name: "is_4k", selector: { boolean: {} } },
@@ -64,6 +77,7 @@ class SeerrSearchCard extends HTMLElement {
         title: "Card title",
         max_results: "Maximum search results",
         poster_width: "Poster width",
+        live_suggestions: "Show suggestions while typing",
         show_overview: "Show description",
         show_rating: "Show rating",
         is_4k: "Request 4K versions",
@@ -75,6 +89,7 @@ class SeerrSearchCard extends HTMLElement {
     return {
       title: "Search movies & TV",
       max_results: 12,
+      live_suggestions: true,
       show_overview: true,
       show_rating: true,
     };
@@ -88,10 +103,102 @@ class SeerrSearchCard extends HTMLElement {
       : response;
   }
 
-  async _search() {
+  _scheduleSuggestions(value) {
+    this._query = value;
+    clearTimeout(this._suggestionTimer);
+    const requestId = ++this._suggestionRequest;
+    const query = value.trim();
+
+    if (!this._config.live_suggestions || query.length < 2) {
+      this._suggestions = [];
+      this._suggestionsLoading = false;
+      this._suggestionsOpen = false;
+      this._activeSuggestion = -1;
+      this._renderSuggestions();
+      return;
+    }
+
+    this._suggestionsLoading = true;
+    this._suggestionsOpen = true;
+    this._activeSuggestion = -1;
+    this._renderSuggestions();
+
+    this._suggestionTimer = setTimeout(
+      () => this._loadSuggestions(query, requestId),
+      350,
+    );
+  }
+
+  async _loadSuggestions(query, requestId) {
+    try {
+      const data = await this._callWS({
+        type: "seerr_card/search",
+        query,
+        page: 1,
+        limit: 6,
+      });
+
+      if (requestId !== this._suggestionRequest || query !== this._query.trim()) return;
+      this._suggestions = Array.isArray(data?.results) ? data.results.slice(0, 6) : [];
+      this._suggestionsOpen = this._suggestions.length > 0;
+    } catch (error) {
+      if (requestId !== this._suggestionRequest) return;
+      this._suggestions = [];
+      this._suggestionsOpen = false;
+      console.warn("Seerr suggestions failed", error);
+    } finally {
+      if (requestId !== this._suggestionRequest) return;
+      this._suggestionsLoading = false;
+      this._renderSuggestions();
+    }
+  }
+
+  _closeSuggestions(clear = false) {
+    clearTimeout(this._suggestionTimer);
+    this._suggestionsOpen = false;
+    this._suggestionsLoading = false;
+    this._activeSuggestion = -1;
+    if (clear) this._suggestions = [];
+    this._renderSuggestions();
+  }
+
+  _moveSuggestion(direction) {
+    if (!this._suggestionsOpen || !this._suggestions.length) return;
+    const count = this._suggestions.length;
+    this._activeSuggestion = (this._activeSuggestion + direction + count) % count;
+    this._renderSuggestions();
+    this.shadowRoot
+      ?.querySelector(`.suggestion[data-index="${this._activeSuggestion}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }
+
+  _selectSuggestion(index) {
+    const item = this._suggestions[index];
+    if (!item) return;
+
+    clearTimeout(this._suggestionTimer);
+    this._suggestionRequest += 1;
+    this._query = item.title || "";
+    this._results = [item];
+    this._error = "";
+    this._loading = false;
+    this._suggestions = [];
+    this._suggestionsOpen = false;
+    this._suggestionsLoading = false;
+    this._activeSuggestion = -1;
+    this._render();
+  }
+
+  async _search(queryOverride) {
     const input = this.shadowRoot.querySelector("#searchInput");
-    const query = (input?.value || "").trim();
+    const query = String(queryOverride ?? input?.value ?? this._query).trim();
     this._query = query;
+    clearTimeout(this._suggestionTimer);
+    this._suggestionRequest += 1;
+    this._suggestions = [];
+    this._suggestionsOpen = false;
+    this._suggestionsLoading = false;
+    this._activeSuggestion = -1;
 
     if (query.length < 2) {
       this._error = "Enter at least 2 characters.";
@@ -134,7 +241,7 @@ class SeerrSearchCard extends HTMLElement {
         type: "seerr_card/request",
         media_type: item.media_type,
         media_id: item.id,
-        seasons: item.media_type === "tv" ? "all" : "all",
+        seasons: "all",
         is_4k: Boolean(this._config.is_4k),
       });
       item.media_status = 2;
@@ -192,6 +299,71 @@ class SeerrSearchCard extends HTMLElement {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  _suggestionHtml(item, index) {
+    const poster = this._poster(item);
+    const year = this._year(item);
+    const type = item.media_type === "tv" ? "TV" : "Movie";
+    const active = index === this._activeSuggestion;
+
+    return `
+      <button
+        type="button"
+        class="suggestion${active ? " active" : ""}"
+        data-index="${index}"
+        role="option"
+        aria-selected="${active}"
+      >
+        <span class="suggestion-poster">
+          ${poster
+            ? `<img src="${this._escape(poster)}" alt="" loading="lazy">`
+            : `<span class="suggestion-no-poster">🎬</span>`}
+        </span>
+        <span class="suggestion-text">
+          <span class="suggestion-title">${this._escape(item.title)}</span>
+          <span class="suggestion-meta">${this._escape(type)}${year ? ` · ${this._escape(year)}` : ""}</span>
+        </span>
+      </button>`;
+  }
+
+  _renderSuggestions() {
+    const box = this.shadowRoot?.querySelector("#suggestions");
+    const input = this.shadowRoot?.querySelector("#searchInput");
+    if (!box) return;
+
+    const visible = Boolean(
+      this._config.live_suggestions &&
+      this._suggestionsOpen &&
+      (this._suggestionsLoading || this._suggestions.length),
+    );
+
+    box.hidden = !visible;
+    input?.setAttribute("aria-expanded", String(visible));
+
+    if (!visible) {
+      box.innerHTML = "";
+      return;
+    }
+
+    box.innerHTML = this._suggestionsLoading
+      ? `<div class="suggestion-loading"><span class="mini-spinner"></span>Finding matches…</div>`
+      : this._suggestions.map((item, index) => this._suggestionHtml(item, index)).join("");
+
+    box.querySelectorAll("button.suggestion").forEach((button) => {
+      button.addEventListener("pointerdown", (event) => event.preventDefault());
+      button.addEventListener("mouseenter", () => {
+        this._activeSuggestion = Number(button.dataset.index);
+        box.querySelectorAll("button.suggestion").forEach((itemButton) => {
+          const isActive = itemButton === button;
+          itemButton.classList.toggle("active", isActive);
+          itemButton.setAttribute("aria-selected", String(isActive));
+        });
+      });
+      button.addEventListener("click", () => {
+        this._selectSuggestion(Number(button.dataset.index));
+      });
+    });
   }
 
   _resultHtml(item, index) {
@@ -252,9 +424,10 @@ class SeerrSearchCard extends HTMLElement {
         :host { display:block; }
         ha-card { overflow:hidden; }
         .header { padding:18px 18px 10px; font-size:20px; font-weight:600; }
-        .search-row { display:flex; gap:8px; padding:0 18px 16px; }
+        .search-row { display:flex; align-items:flex-start; gap:8px; padding:0 18px 16px; }
+        .search-wrap { flex:1; min-width:0; }
         input {
-          flex:1; min-width:0; border:1px solid var(--divider-color);
+          width:100%; box-sizing:border-box; border:1px solid var(--divider-color);
           border-radius:12px; padding:11px 13px; font:inherit;
           color:var(--primary-text-color); background:var(--card-background-color);
           outline:none;
@@ -266,6 +439,36 @@ class SeerrSearchCard extends HTMLElement {
           background:var(--primary-color);
         }
         button:disabled { cursor:default; opacity:.62; }
+        .suggestions {
+          margin-top:6px; overflow:hidden; max-height:390px; overflow-y:auto;
+          border:1px solid var(--divider-color); border-radius:12px;
+          background:var(--card-background-color); box-shadow:var(--ha-card-box-shadow, 0 4px 14px rgba(0,0,0,.18));
+        }
+        .suggestions[hidden] { display:none; }
+        .suggestion {
+          width:100%; display:flex; align-items:center; gap:10px; padding:8px;
+          border-radius:0; color:var(--primary-text-color); background:transparent;
+          text-align:left; font-weight:400;
+        }
+        .suggestion + .suggestion { border-top:1px solid var(--divider-color); }
+        .suggestion:hover, .suggestion.active { background:var(--secondary-background-color); }
+        .suggestion-poster {
+          width:36px; height:54px; flex:0 0 36px; overflow:hidden; border-radius:6px;
+          background:var(--secondary-background-color); display:grid; place-items:center;
+        }
+        .suggestion-poster img { width:100%; height:100%; object-fit:cover; display:block; }
+        .suggestion-no-poster { font-size:18px; }
+        .suggestion-text { min-width:0; display:flex; flex-direction:column; gap:3px; }
+        .suggestion-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+        .suggestion-meta { color:var(--secondary-text-color); font-size:12px; }
+        .suggestion-loading {
+          min-height:56px; display:flex; align-items:center; justify-content:center;
+          gap:8px; color:var(--secondary-text-color); font-size:13px;
+        }
+        .mini-spinner {
+          width:14px; height:14px; border:2px solid var(--divider-color);
+          border-top-color:var(--primary-color); border-radius:50%; animation:spin .8s linear infinite;
+        }
         #errorBox {
           margin:0 18px 14px; padding:10px 12px; border-radius:10px;
           background:var(--error-color); color:white;
@@ -301,7 +504,20 @@ class SeerrSearchCard extends HTMLElement {
       <ha-card>
         <div class="header">${title}</div>
         <div class="search-row">
-          <input id="searchInput" type="search" placeholder="Movie or TV title…" value="${this._escape(this._query)}" autocomplete="off">
+          <div class="search-wrap">
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="Movie or TV title…"
+              value="${this._escape(this._query)}"
+              autocomplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="suggestions"
+              aria-expanded="false"
+            >
+            <div id="suggestions" class="suggestions" role="listbox" hidden></div>
+          </div>
           <button id="searchButton" ${this._loading ? "disabled" : ""}>Search</button>
         </div>
         <div id="errorBox" ${this._error ? "" : "hidden"}>${this._escape(this._error)}</div>
@@ -312,11 +528,37 @@ class SeerrSearchCard extends HTMLElement {
     const searchButton = this.shadowRoot.querySelector("#searchButton");
     searchButton?.addEventListener("click", () => this._search());
     input?.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") this._search();
+      if (event.key === "ArrowDown" && this._suggestionsOpen) {
+        event.preventDefault();
+        this._moveSuggestion(1);
+      } else if (event.key === "ArrowUp" && this._suggestionsOpen) {
+        event.preventDefault();
+        this._moveSuggestion(-1);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        if (this._suggestionsOpen && this._activeSuggestion >= 0) {
+          this._selectSuggestion(this._activeSuggestion);
+        } else {
+          this._search();
+        }
+      } else if (event.key === "Escape") {
+        this._closeSuggestions(false);
+      }
     });
     input?.addEventListener("input", (event) => {
-      this._query = event.target.value;
+      this._scheduleSuggestions(event.target.value);
     });
+    input?.addEventListener("focus", () => {
+      if (this._config.live_suggestions && this._suggestions.length && this._query.trim().length >= 2) {
+        this._suggestionsOpen = true;
+        this._renderSuggestions();
+      }
+    });
+    input?.addEventListener("blur", () => {
+      setTimeout(() => this._closeSuggestions(false), 140);
+    });
+
+    this._renderSuggestions();
 
     this.shadowRoot.querySelectorAll("button.request").forEach((button) => {
       button.addEventListener("click", () => {
