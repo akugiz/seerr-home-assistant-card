@@ -1,7 +1,7 @@
 {
   "domain": "seerr_card",
   "name": "Seerr Search Card",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "config_flow": true,
   "single_config_entry": true,
   "documentation": "https://github.com/akugiz/seerr-home-assistant-card",
