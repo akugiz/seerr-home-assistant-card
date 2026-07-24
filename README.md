@@ -5,6 +5,7 @@ Search for movies and TV shows in Seerr directly from a Home Assistant dashboard
 ## Features
 
 - Search movies and TV shows.
+- Show live movie and TV suggestions while typing.
 - Display posters, year, rating, overview and request status.
 - Request movies or all seasons of a TV show.
 - Optional 4K requests.
@@ -39,11 +40,14 @@ The visual editor covers the normal options. Manual YAML is also supported:
 type: custom:seerr-search-card
 title: Search movies & TV
 max_results: 12
+live_suggestions: true
 show_overview: true
 show_rating: true
 poster_width: 92
 is_4k: false
 ```
+
+Live suggestions start after two characters and wait briefly before searching, which avoids sending a Seerr request for every keypress. Use the arrow keys and Enter, or click a suggestion.
 
 ## Finding the Seerr API key
 
@@ -57,7 +61,7 @@ Keep this key private because it may have administrator-level access to Seerr.
 
 - TV requests currently request **all seasons**.
 - `is_4k: true` requires a correctly configured default 4K Radarr/Sonarr service in Seerr.
-- Automatic card resource registration works with the normal Home Assistant Lovelace storage mode. Users who run Lovelace resources entirely from YAML must add `/seerr_card/seerr-search-card.js?v=0.2.1` as a JavaScript module themselves.
+- Automatic card resource registration works with the normal Home Assistant Lovelace storage mode. Users who run Lovelace resources entirely from YAML must add `/seerr_card/seerr-search-card.js?v=0.2.2` as a JavaScript module themselves.
 
 ## Updating
 
