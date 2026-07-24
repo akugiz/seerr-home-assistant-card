@@ -1,13 +1,13 @@
 {
   "domain": "seerr_card",
   "name": "Seerr Search Card",
-  "version": "0.2.2",
-  "config_flow": true,
-  "single_config_entry": true,
-  "documentation": "https://github.com/akugiz/seerr-home-assistant-card",
-  "issue_tracker": "https://github.com/akugiz/seerr-home-assistant-card/issues",
   "codeowners": ["@akugiz"],
+  "config_flow": true,
   "dependencies": ["http", "lovelace", "websocket_api"],
+  "documentation": "https://github.com/akugiz/seerr-home-assistant-card",
+  "integration_type": "service",
   "iot_class": "local_polling",
-  "integration_type": "service"
+  "issue_tracker": "https://github.com/akugiz/seerr-home-assistant-card/issues",
+  "single_config_entry": true,
+  "version": "0.2.3"
 }
