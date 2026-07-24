@@ -1,0 +1,9 @@
+{
+  "domain": "seerr_card",
+  "name": "Seerr Card Backend",
+  "version": "0.1.0",
+  "documentation": "https://docs.seerr.dev/api/seerr-api/",
+  "codeowners": [],
+  "iot_class": "local_polling",
+  "integration_type": "service"
+}
