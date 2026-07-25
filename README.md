@@ -2,6 +2,9 @@
 
 Search for movies and TV shows in Seerr directly from a Home Assistant dashboard, then send the request without opening Seerr.
 
+![Seerr Search Card for Home Assistant](photo.png)
+![Seerr Search Card for Home Assistant](photo2.png)
+
 ## Features
 
 - Search movies and TV shows.
