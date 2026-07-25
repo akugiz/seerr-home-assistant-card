@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from urllib.parse import quote
 
 from aiohttp import ClientError, ClientResponse, ClientSession
 
@@ -92,10 +93,14 @@ class SeerrClient:
 
     async def search(self, query: str, page: int = 1) -> dict[str, Any]:
         """Search movies, TV shows and people."""
+        # Seerr requires strict percent encoding for reserved characters.
+        # Passing aiohttp ``params`` may encode spaces as ``+``, which some
+        # Seerr releases reject. Build the query with ``quote`` so spaces use
+        # ``%20`` and characters such as &, /, ? and # are safely encoded.
+        encoded_query = quote(query, safe="")
         data = await self.request(
             "GET",
-            "/search",
-            params={"query": query, "page": page},
+            f"/search?query={encoded_query}&page={int(page)}",
         )
         if not isinstance(data, dict):
             raise SeerrApiError("Seerr returned an invalid search response")
