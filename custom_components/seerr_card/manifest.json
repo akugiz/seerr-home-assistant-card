@@ -9,5 +9,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/akugiz/seerr-home-assistant-card/issues",
   "single_config_entry": true,
-  "version": "0.2.3"
+  "version": "0.2.4"
 }
